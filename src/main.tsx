@@ -42,12 +42,15 @@ function App() {
 
   useEffect(()=>localStorage.setItem(STORAGE_KEY, JSON.stringify(songs)),[songs]);
   useEffect(()=>()=>{ if(audioUrl) URL.revokeObjectURL(audioUrl); if(timer.current) clearInterval(timer.current); if(metroTimer.current) clearInterval(metroTimer.current); },[]);
-  useEffect(()=>{ if(!playing || !song) { if(timer.current) clearInterval(timer.current); return; } const ms=60000/song.bpm/tempo*100; timer.current=window.setInterval(()=>setPos(p=>{ const n=p+1; if(n>=song.notes.length){ if(loop) return 0; setPlaying(false); return p; } return n; }),ms); return ()=>{if(timer.current) clearInterval(timer.current)}; },[playing,song,tempo,loop]);
+  useEffect(()=>{ if(!playing || !song) { if(timer.current) clearInterval(timer.current); return; } const ms=60000/song.bpm*(100/tempo); timer.current=window.setInterval(()=>{ setPos(p=>{ const n=p+1; if(n>=song.notes.length){ if(loop){ void playCurrentNote(0); return 0; } setPlaying(false); return p; } void playCurrentNote(n); return n; }); },ms); return ()=>{if(timer.current) clearInterval(timer.current)}; },[playing,song,tempo,loop]);
   useEffect(()=>{ if(!metro){ if(metroTimer.current) clearInterval(metroTimer.current); return; } const tick=()=>beep(880,.045); metroTimer.current=window.setInterval(tick,60000/(song?.bpm||80)*1000); return ()=>{if(metroTimer.current) clearInterval(metroTimer.current)}; },[metro,song?.bpm]);
 
   const filtered=useMemo(()=>songs.filter(s=>(s.title+' '+s.artist).toLowerCase().includes(query.toLowerCase())),[songs,query]);
-  function beep(freq:number,dur=.12){ const ctx=synth.current || (synth.current=new AudioContext()); const o=ctx.createOscillator(), g=ctx.createGain(); o.type='triangle'; o.frequency.value=freq; g.gain.value=.06; o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur); }
-  function togglePlay(){ if(!song) return; if(!playing){setPlaying(true); const n=song.notes[pos]; if(n) beep(41.2*Math.pow(2,(n.fret+[0,5,10,15][4-n.string])/12),.16);} else setPlaying(false); }
+  async function ensureAudio(){ const C=window.AudioContext || (window as any).webkitAudioContext; if(!C) throw new Error('Web Audio API indisponível neste navegador'); if(!synth.current) synth.current=new C(); if(synth.current.state==='suspended') await synth.current.resume(); return synth.current; }
+  async function beep(freq:number,dur=.18){ const ctx=await ensureAudio(); const o=ctx.createOscillator(), g=ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(Math.max(30,Math.min(1000,freq)),ctx.currentTime); g.gain.setValueAtTime(.0001,ctx.currentTime); g.gain.exponentialRampToValueAtTime(.12,ctx.currentTime+.012); g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+dur); o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur+.02); }
+  function noteFrequency(n:Note){ const open={4:40,3:45,2:50,1:55} as Record<number,number>; return 440*Math.pow(2,(open[n.string]+n.fret-69)/12); }
+  async function playCurrentNote(index:number){ const n=song?.notes[index]; if(n) await beep(noteFrequency(n),Math.max(.12,60/(song?.bpm||80)*.85)); }
+  async function togglePlay(){ if(!song) return; if(!playing){ await ensureAudio(); setPlaying(true); await playCurrentNote(pos); } else setPlaying(false); }
   function update(p:Partial<Song>){ setSongs(ss=>ss.map(s=>s.id===song.id?{...s,...p}:s)); }
   function addSong(){ const s:Song={id:crypto.randomUUID(),title:'Nova música',artist:'',bpm:80,key:'C',tuning:'E A D G',notes:[]}; setSongs(x=>[s,...x]); setId(s.id); setPos(0); }
   function delSong(){ if(song.id==='demo' && songs.length===1) return; if(confirm('Excluir esta música?')) { const r=songs.filter(s=>s.id!==song.id); setSongs(r.length?r:[demo]); setId((r[0]||demo).id); } }
