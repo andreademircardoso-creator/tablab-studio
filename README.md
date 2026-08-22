@@ -1,12 +1,19 @@
 # TabLab Studio
 
-Estúdio web pessoal para estudo de tablaturas de contrabaixo.
+Web app pessoal para estudo de tablaturas de contrabaixo.
 
-- React + TypeScript + Vite
-- PWA-ready
-- Player sintetizado local via Web Audio API
-- Biblioteca persistida no navegador
-- Backup/restauração JSON
-- Sem catálogo de conteúdo protegido de terceiros
+## 0.2 — Áudio local → TAB
+- Importa MP3/WAV/M4A pelo navegador.
+- Analisa o áudio localmente com detecção de pitch e estima uma linha de baixo.
+- Converte notas detectadas em posições de TAB para baixo de 4 cordas E-A-D-G.
+- Permite revisar e editar a TAB gerada.
+- Não baixa áudio do YouTube e não envia o arquivo para servidor.
 
-Projeto de uso pessoal.
+A transcrição é experimental: resultados dependem da mixagem, afinação e presença de outros instrumentos. O usuário deve revisar a TAB.
+
+## Desenvolvimento
+`npm install`
+`npm run dev`
+
+## Publicação
+O projeto usa GitHub Pages via GitHub Actions.
